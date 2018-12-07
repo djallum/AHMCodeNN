@@ -9,7 +9,7 @@
 ! DiagCluster is called first and implements the other subroutines the determine the DOS of the cluster
 
 module Diag
-  use Inputs, only: ClusterMax
+  use Inputs, only: ClusterMax, dp
   implicit none
 
   Type SetUp
@@ -25,22 +25,22 @@ module Diag
      procedure :: init => PreSetUp
   end type SetUp
 
-  type(SetUp) :: Ops(ClusterMax)
+  type(SetUp) :: Ops(ClusterMax+2)
   TYPE Cell
-     real, allocatable :: comp(:)
+     real(dp), allocatable :: comp(:)
    contains
      procedure :: delete => Clean_EigenV
   end type Cell
 
   TYPE RealCell
-     real, allocatable :: HSUB(:,:)
+     real(dp), allocatable :: HSUB(:,:)
   end type RealCell
   Type Hamiltonian
      type(RealCell), dimension(:,:), allocatable :: HFULL
    contains
      procedure :: alloc => MakeHamiltonian
   end type Hamiltonian
-  type(Hamiltonian) :: H_hat(ClusterMax)
+  type(Hamiltonian) :: H_hat(ClusterMax+2)
   
 contains
   !************************************************************************************
@@ -79,7 +79,7 @@ contains
     class(Hamiltonian), intent(inout) :: H
     integer, intent(in) :: nsites
     integer, dimension(nsites,2) :: neighbours
-    real, intent(in) :: t
+    real(dp), intent(in) :: t
     integer :: n_up,n_dn
 
     
@@ -367,9 +367,9 @@ contains
   subroutine BuildOffDiag(n_up,n_dn,HSUB,neighbours,t,nsites)
     implicit none
     integer, intent(in) :: n_up,n_dn, nsites
-    real, dimension(Ops(nsites)%msize(n_up,n_dn),Ops(nsites)%msize(n_up,n_dn)), intent(out) :: HSUB
+    real(dp), dimension(Ops(nsites)%msize(n_up,n_dn),Ops(nsites)%msize(n_up,n_dn)), intent(out) :: HSUB
     integer, intent(in), dimension(nsites,2) :: neighbours
-    real, intent(in) :: t
+    real(dp), intent(in) :: t
 
     integer :: istate, isite, i, j, y        ! counters for loops
     integer :: high, low                     ! Highest and lowest state labels
@@ -381,7 +381,7 @@ contains
     integer :: new_index                     ! the column index of the new FS after the hopping
     integer :: state_index                   ! the row index of the old FS before the hopping
 
-    HSUB = 0.0
+    HSUB = 0.0_dp
     low = Ops(nsites)%mblock(n_up,n_dn)
     high = Ops(nsites)%mblock(n_up,n_dn) + Ops(nsites)%msize(n_up,n_dn) - 1
     do istate = low,high  ! loop over all the states in each submatrix
@@ -460,9 +460,9 @@ contains
   subroutine BuildHSUB(n_up, n_dn, HSUB, U, E, nsites)
     implicit none
     integer, intent(in) :: n_up,n_dn
-    real, dimension(:,:), intent(out) :: HSUB
+    real(dp), dimension(:,:), intent(out) :: HSUB
     integer, intent(in) :: nsites
-    real, intent(in) :: U, E(nsites)
+    real(dp), intent(in) :: U, E(nsites)
     integer :: istate, isite                 ! counters for loops
     integer :: ne                            ! counts the number of electrons (used to calculate the phase)
     
@@ -485,10 +485,10 @@ contains
     
     implicit none
     integer, intent(in) :: nsites, nstates
-    real, intent(in) :: E(nsites), U, mu
-    real, intent(in) :: t                    ! the hopping integral
+    real(dp), intent(in) :: E(nsites), U, mu
+    real(dp), intent(in) :: t                    ! the hopping integral
     integer, intent(in), dimension(:,:) :: neighbours
-    real, intent(inout), dimension(0:nsites,0:nsites) :: e_ground       ! array of the lowest grand potential (Gpot) of each submatrix (e_ground(i,j) is lowest Gpot of Hij) 
+    real(dp), intent(inout), dimension(0:nsites,0:nsites) :: e_ground       ! array of the lowest grand potential (Gpot) of each submatrix (e_ground(i,j) is lowest Gpot of Hij) 
     integer :: n_up,n_dn                     ! the number of up ad down electrons (used to loop over each submatrix)
 
     
@@ -506,16 +506,16 @@ contains
 
     implicit none
     integer, intent(in) :: n_up, n_dn, nsites, nstates, neighbours(:,:)
-    real, intent(inout), dimension(0:nsites,0:nsites) :: e_ground
-    real, intent(in) :: E(nsites), U, mu, t
-    real :: HSUB(Ops(nsites)%msize(n_up,n_dn),Ops(nsites)%msize(n_up,n_dn))
-    real :: VSUB(Ops(nsites)%msize(n_up,n_dn),Ops(nsites)%msize(n_up,n_dn))
-    real :: WSUB(Ops(nsites)%msize(n_up,n_dn))
+    real(dp), intent(inout), dimension(0:nsites,0:nsites) :: e_ground
+    real(dp), intent(in) :: E(nsites), U, mu, t
+    real(dp) :: HSUB(Ops(nsites)%msize(n_up,n_dn),Ops(nsites)%msize(n_up,n_dn))
+    real(dp) :: VSUB(Ops(nsites)%msize(n_up,n_dn),Ops(nsites)%msize(n_up,n_dn))
+    real(dp) :: WSUB(Ops(nsites)%msize(n_up,n_dn))
     HSUB = H_hat(nsites)%HFULL(n_up,n_dn)%HSUB
     
     call BuildHSUB(n_up, n_dn, HSUB, U, E, nsites)
 
-    call ssyevr_lapack1(Ops(nsites)%msize(n_up,n_dn),HSUB,WSUB,VSUB)
+    call dsyevr_lapack1(Ops(nsites)%msize(n_up,n_dn),HSUB,WSUB,VSUB)
     e_ground(n_up,n_dn) = WSUB(1) - mu*(n_up+n_dn)
     
   end subroutine GetEnergy
@@ -525,21 +525,21 @@ contains
        g_up,g_dn, eigenvectors, grand_potential)
     implicit none
     integer, intent(in) :: nsites, nstates
-    real, intent(in) :: E(nsites), U, mu
+    real(dp), intent(in) :: E(nsites), U, mu
     integer, intent(in) :: g_up,g_dn
-    real, intent(in) :: t                    ! the hopping integral
+    real(dp), intent(in) :: t                    ! the hopping integral
     integer, intent(in), dimension(:,:) :: neighbours
-    real, intent(inout), dimension(:) :: grand_potential          ! grand potentials (eigenenergies - mu*number electrons)
+    real(dp), intent(inout), dimension(:) :: grand_potential          ! grand potentials (eigenenergies - mu*number electrons)
     TYPE(cell), intent(inout), dimension(:) :: eigenvectors        ! the many body eigenvectors (MBE) only coefficients of basis states with same n_up,n_dn as it
-    real :: HSUB(Ops(nsites)%msize(g_up,g_dn),Ops(nsites)%msize(g_up,g_dn))
-    real :: VSUB(Ops(nsites)%msize(g_up,g_dn),Ops(nsites)%msize(g_up,g_dn)), WSUB(Ops(nsites)%msize(g_up,g_dn))
+    real(dp) :: HSUB(Ops(nsites)%msize(g_up,g_dn),Ops(nsites)%msize(g_up,g_dn))
+    real(dp) :: VSUB(Ops(nsites)%msize(g_up,g_dn),Ops(nsites)%msize(g_up,g_dn)), WSUB(Ops(nsites)%msize(g_up,g_dn))
     integer :: i
     do i=1,Ops(nsites)%msize(g_up,g_dn)
        allocate(eigenvectors(i+Ops(nsites)%mblock(g_up,g_dn)-1)%comp(1:Ops(nsites)%msize(g_up,g_dn)))
     end do
     HSUB = H_hat(nsites)%HFULL(g_up,g_dn)%HSUB
     call BuildHSUB(g_up, g_dn, HSUB, U, E, nsites)
-    call ssyevr_lapack(Ops(nsites)%msize(g_up,g_dn),HSUB,WSUB,VSUB)
+    call dsyevr_lapack(Ops(nsites)%msize(g_up,g_dn),HSUB,WSUB,VSUB)
     
     do i=1,Ops(nsites)%msize(g_up,g_dn)
        grand_potential(i+Ops(nsites)%mblock(g_up,g_dn)-1) = WSUB(i) - mu*(g_up+g_dn)  ! grand potentials
@@ -558,13 +558,13 @@ contains
   subroutine DiagCluster(nsites,nstates,E,Energy,Weight,mu,U,t)
     implicit none
     integer, intent(in) :: nsites,nstates 
-    real, intent(in) :: E(nsites), mu, U, t
-    real, dimension(nsites*2*nstates), intent(out) :: Energy, Weight
+    real(dp), intent(in) :: E(nsites), mu, U, t
+    real(dp), dimension(nsites*2*nstates), intent(out) :: Energy, Weight
     
     
-    real, dimension(nstates) :: grand_potential          ! grand potentials (eigenenergies - mu*number electrons)
-    real :: grand_potential_ground=0.0                   ! the lowest grand ensemble energy
-    real, dimension(0:nsites,0:nsites) :: e_ground       ! array of the lowest grand potential (Gpot) of each submatrix (e_ground(i,j) is lowest Gpot of Hij) 
+    real(dp), dimension(nstates) :: grand_potential          ! grand potentials (eigenenergies - mu*number electrons)
+    real(dp) :: grand_potential_ground=0.0_dp                   ! the lowest grand ensemble energy
+    real(dp), dimension(0:nsites,0:nsites) :: e_ground       ! array of the lowest grand potential (Gpot) of each submatrix (e_ground(i,j) is lowest Gpot of Hij) 
     TYPE(cell), dimension(nstates) :: eigenvectors       ! the many body eigenvectors (MBE) only coefficients of basis states with same n_up,n_dn as it  
     integer, dimension(nsites,2) :: neighbours           ! neighbours(i,:) is all the site that are nearest neighbours to site i
     
@@ -575,20 +575,20 @@ contains
     integer :: low, high                         ! range in array grand_potentials of states with a specified n_up, n_dn electrons
     integer :: groundloc(2)                      ! stores the location in array e_ground of minimum energy (this will find g_up, g_dn)
     integer :: location(1)                       ! stores the location in the grand_potential array of the lowest energy
-    real, dimension(nstates) :: MBGvec           ! many-body ground state vector (MBG) written in fock basis (MBGvec(i) is coefficient of fock state "i")
-    real, dimension(nstates,nsites) :: PESdn_MBG, PESup_MBG   ! MBG after a down or up photo emmision (PE) respectively (PESdn_MBG(i,:) is  c_{i,dn}|Psi0> )
-    real, dimension(nstates,nsites) :: IPESdn_MBG, IPESup_MBG ! MBG after a down or up inverse photo emmision respectively (IPESdn_MBG(i,:) is  c^{dagger}_{i,dn}|Psi0> )
-    real :: inner_prod_up, inner_prod_dn             ! inner products used when calculating weight of LDOS contributions (<Psi|PESdn_MBG> or <Psi|IPESdn_MBG>)
-    
+    real(dp), dimension(nstates) :: MBGvec           ! many-body ground state vector (MBG) written in fock basis (MBGvec(i) is coefficient of fock state "i")
+    real(dp), dimension(nstates,nsites) :: PESdn_MBG, PESup_MBG   ! MBG after a down or up photo emmision (PE) respectively (PESdn_MBG(i,:) is  c_{i,dn}|Psi0> )
+    real(dp), dimension(nstates,nsites) :: IPESdn_MBG, IPESup_MBG ! MBG after a down or up inverse photo emmision respectively (IPESdn_MBG(i,:) is  c^{dagger}_{i,dn}|Psi0> )
+    real(dp) :: inner_prod_up, inner_prod_dn             ! inner products used when calculating weight of LDOS contributions (<Psi|PESdn_MBG> or <Psi|IPESdn_MBG>)
+    !print*, "nsites in diag", nsites
     call make_neighbours(nsites, neighbours)
-    MBGvec=0.0
-    grand_potential_ground = 0.0
+    MBGvec=0.0_dp
+    grand_potential_ground = 0.0_dp
 
-    PESdn_MBG=0.0; PESup_MBG=0.0; IPESdn_MBG=0.0; IPESup_MBG=0.0
+    PESdn_MBG=0.0_dp; PESup_MBG=0.0_dp; IPESdn_MBG=0.0_dp; IPESup_MBG=0.0_dp
     grand_potential = 0
     e_ground = 0
-    Energy = 0.0
-    Weight = 0.0
+    Energy = 0.0_dp
+    Weight = 0.0_dp
     
     call solve_hamiltonian1(E, U, mu, t, neighbours, e_ground, nsites, nstates)  ! solve for the lowest grand potential of each hamiltonian sub-matrix
     
@@ -631,22 +631,22 @@ contains
     do j=1,nsites
        do i=1,nstates
           if (Ops(nsites)%PES_up(i,j)==0) then
-             PESup_MBG(i,j) = 0.0
+             PESup_MBG(i,j) = 0.0_dp
           else 
              PESup_MBG(i,j) = MBGvec(Ops(nsites)%PES_up(i,j))*Ops(nsites)%phase_PES_up(i,j)
           end if
           if (Ops(nsites)%PES_down(i,j)==0) then
-             PESdn_MBG(i,j) = 0.0
+             PESdn_MBG(i,j) = 0.0_dp
           else 
              PESdn_MBG(i,j) = MBGvec(Ops(nsites)%PES_down(i,j))*Ops(nsites)%phase_PES_down(i,j)
           end if
           if (Ops(nsites)%IPES_up(i,j)==0) then
-             IPESup_MBG(i,j) = 0.0
+             IPESup_MBG(i,j) = 0.0_dp
           else 
              IPESup_MBG(i,j) = MBGvec(Ops(nsites)%IPES_up(i,j))*Ops(nsites)%phase_IPES_up(i,j)
           end if
           if (Ops(nsites)%IPES_down(i,j)==0) then
-             IPESdn_MBG(i,j) = 0.0
+             IPESdn_MBG(i,j) = 0.0_dp
           else 
              IPESdn_MBG(i,j) = MBGvec(Ops(nsites)%IPES_down(i,j))*Ops(nsites)%phase_IPES_down(i,j)
           end if
@@ -665,7 +665,7 @@ contains
           if (n_up == g_up .and. n_dn == g_dn) CYCLE                                                 ! not allowed (same n_up and n_dn)
           low = Ops(nsites)%mblock(n_up,n_dn)                               ! lowest value of range of fock states of the submatrix
           high = Ops(nsites)%mblock(n_up,n_dn) + Ops(nsites)%msize(n_up,n_dn) - 1       ! highest value of range of fock states of the submatrix
-          do j=1,nsites                  ! loop over all the sites (PESdn_MBG for c_{j,sigma} with different j's)  
+          do j=2,nsites-1                  ! loop over all the sites (PESdn_MBG for c_{j,sigma} with different j's)  
              do i=low,high              ! loop over only the states that will be non-zero (within range of submatrix)
                 inner_prod_up = 0
                 inner_prod_dn = 0
@@ -702,10 +702,10 @@ contains
   
   !************************************************************************************
   
-  subroutine ssyevr_lapack1(dim,matrix,eigvalues,eigvectors)
+  subroutine dsyevr_lapack1(dim,matrix,eigvalues,eigvectors)
     
     !  %-----------------------------------------------------------------%
-    !  |  This subroutine calls the driver SSYEVR.                       |
+    !  |  This subroutine calls the driver DSYEVR.                       |
     !  |                                                                 |
     !  |  Solves the only the lowest eigenvalues of the matrix.          |
     !  |      - Eigenvalues returned in eigvalues                        |
@@ -715,24 +715,24 @@ contains
     implicit none
     
     integer, intent(in) :: dim                  ! dimension of the matrix
-    real, intent(in) :: matrix(dim,dim)         ! the matrix to be solved
-    real, intent(out) :: eigvalues(dim)         ! the outputed eigenvalues
-    real, intent(out) :: eigvectors(dim,dim)    ! array contains no useful information this case
+    real(dp), intent(in) :: matrix(dim,dim)         ! the matrix to be solved
+    real(dp), intent(out) :: eigvalues(dim)         ! the outputed eigenvalues
+    real(dp), intent(out) :: eigvectors(dim,dim)    ! array contains no useful information this case
     
     integer, parameter :: NSELECT=1
     
     integer :: LDA, LDZ
-    real :: VL,VU
-    real :: ABSTOL = -1
+    real(dp) :: VL,VU
+    real(dp) :: ABSTOL = -1
     integer :: IL=1,IU=NSELECT
     
     integer :: M
     integer :: INFO
     integer :: LWORK, LIWORK
     integer, allocatable, dimension(:) :: ISUPPZ, IWORK
-    real, allocatable,dimension(:) :: WORK
-    eigvectors = 0.0
-    eigvalues = 0.0   
+    real(dp), allocatable,dimension(:) :: WORK
+    eigvectors = 0.0_dp
+    eigvalues = 0.0_dp   
     if (dim == 1) then
        eigvectors = 1
        eigvalues = matrix(1,1)
@@ -746,24 +746,24 @@ contains
     
     allocate(ISUPPZ(2*dim))
     allocate(WORK(1),IWORK(1))
-    WORK = 0.0; IWORK = 0
-    call ssyevr('N','I','U',dim,matrix,LDA,VL,VU,IL,IU,ABSTOL,M,eigvalues,eigvectors,LDZ,ISUPPZ,WORK,LWORK,IWORK,LIWORK,INFO)
+    WORK = 0.0_dp; IWORK = 0
+    call dsyevr('N','I','U',dim,matrix,LDA,VL,VU,IL,IU,ABSTOL,M,eigvalues,eigvectors,LDZ,ISUPPZ,WORK,LWORK,IWORK,LIWORK,INFO)
     LWORK= int(WORK(1))
     LIWORK = IWORK(1)
     
     deallocate(WORK,IWORK)
     allocate(WORK(LWORK),IWORK(LIWORK))
     
-    call ssyevr('N','I','U',dim,matrix,LDA,VL,VU,IL,IU,ABSTOL,M,eigvalues,eigvectors,LDZ,ISUPPZ,WORK,LWORK,IWORK,LIWORK,INFO)
+    call dsyevr('N','I','U',dim,matrix,LDA,VL,VU,IL,IU,ABSTOL,M,eigvalues,eigvectors,LDZ,ISUPPZ,WORK,LWORK,IWORK,LIWORK,INFO)
     deallocate(ISUPPZ,WORK,IWORK)
-  end subroutine ssyevr_lapack1
+  end subroutine dsyevr_lapack1
   
   !************************************************************************************
   
-  subroutine ssyevr_lapack(dim,matrix,eigvalues,eigvectors)
+  subroutine dsyevr_lapack(dim,matrix,eigvalues,eigvectors)
     
     !  %-----------------------------------------------------------------%
-    !  |  This subroutine calls the driver SSYEVR.                       |
+    !  |  This subroutine calls the driver DSYEVR.                       |
     !  |                                                                 |
     !  |  Solves the eigenvalues and eigenvectors of the matrix.         |
     !  |      - Eigenvalues returned in eigvalues                        |
@@ -773,25 +773,25 @@ contains
     implicit none
     
     integer, intent(in) :: dim
-    real, intent(in) :: matrix(dim,dim)
-    real, intent(out) :: eigvalues(dim)
-    real, intent(out) :: eigvectors(dim,dim)
+    real(dp), intent(in) :: matrix(dim,dim)
+    real(dp), intent(out) :: eigvalues(dim)
+    real(dp), intent(out) :: eigvectors(dim,dim)
     
     integer, parameter :: NSELECT=1
     
     integer :: LDA, LDZ
-    real :: VL,VU
-    real :: ABSTOL = -1
+    real(dp) :: VL,VU
+    real(dp) :: ABSTOL = -1
     integer :: IL=1,IU=1
     
     integer :: M
     integer :: INFO
     integer :: LWORK, LIWORK
     integer, allocatable, dimension(:) :: ISUPPZ, IWORK
-    real, allocatable,dimension(:) :: WORK
+    real(dp), allocatable,dimension(:) :: WORK
     
-    eigvalues = 0.0
-    eigvectors = 0.0
+    eigvalues = 0.0_dp
+    eigvectors = 0.0_dp
     
     if (dim == 1) then
        eigvectors = 1
@@ -806,17 +806,17 @@ contains
     
     allocate(ISUPPZ(2*dim))
     allocate(WORK(1),IWORK(1))
-    WORK = 0.0; IWORK = 0
-    call ssyevr('V','A','U',dim,matrix,LDA,VL,VU,IL,IU,ABSTOL,M,eigvalues,eigvectors,LDZ,ISUPPZ,WORK,LWORK,IWORK,LIWORK,INFO)
+    WORK = 0.0_dp; IWORK = 0
+    call dsyevr('V','A','U',dim,matrix,LDA,VL,VU,IL,IU,ABSTOL,M,eigvalues,eigvectors,LDZ,ISUPPZ,WORK,LWORK,IWORK,LIWORK,INFO)
     LWORK= int(WORK(1)) * 2
     LIWORK = IWORK(1) * 2
     
     deallocate(WORK,IWORK)
     allocate(WORK(LWORK),IWORK(LIWORK))
     
-    call ssyevr('V','A','U',dim,matrix,LDA,VL,VU,IL,IU,ABSTOL,M,eigvalues,eigvectors,LDZ,ISUPPZ,WORK,LWORK,IWORK,LIWORK,INFO)
+    call dsyevr('V','A','U',dim,matrix,LDA,VL,VU,IL,IU,ABSTOL,M,eigvalues,eigvectors,LDZ,ISUPPZ,WORK,LWORK,IWORK,LIWORK,INFO)
     deallocate(ISUPPZ,WORK,IWORK)
-  end subroutine ssyevr_lapack
+  end subroutine dsyevr_lapack
   !************************************************************************************
   integer function choose(j,k)
     ! %---------------------------------------------%

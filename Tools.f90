@@ -24,12 +24,12 @@ contains
   
   subroutine Bin_Data( HistoData, Data, Weights, Dropped, Max, Min )
     implicit none
-    real, dimension(:), intent(in) :: Data
-    real, dimension(:), Optional, intent(in) :: Weights
-    real, intent(inout) :: HistoData(bins)
+    real(dp), dimension(:), intent(in) :: Data
+    real(dp), dimension(:), Optional, intent(in) :: Weights
+    real(dp), intent(inout) :: HistoData(bins)
     real, intent(in) :: Max
     real, intent(in) :: Min
-    real, optional, intent(inout) :: Dropped
+    real(dp), optional, intent(inout) :: Dropped
     integer Loop1, Loop2 !Loop integers
  
     ! since both Dropped and Weights are optional there are 2^2 different versions of this subroutine.
@@ -170,9 +170,9 @@ contains
     implicit none
     integer, intent(in) :: Unum, BinNum
     character(len=*), intent(in) :: Form
-    real, intent(in), dimension(:) :: Data
+    real(dp), intent(in), dimension(:) :: Data
     real, intent(in) :: Min, Max
-    real, optional, intent(in) :: Dropped
+    real(dp), optional, intent(in) :: Dropped
     real :: BinWidth ! Width of bins for normalization
     integer :: Loop1 ! Loop integer for writing to file
 
@@ -194,97 +194,39 @@ contains
     Close(Unum)
 
   end subroutine PrintData
-
-  !     resize_array removes a number of elements from a rank-one array
-  !
-  !
-  !     ------------------------------Arguments-------------------------------------
-  !
-  !     array : Real rank-one array that is to be resized
-  !
-  !     numRemove : Integer. The number of elements to remove starting from the element Start in array
-  !
-  !     Start : Integer. The first element to remove from array
-
-  subroutine resize_array(array, numRemove, Start)
-    real, dimension(:), allocatable :: tmp_arr
-    real, dimension(:), allocatable, intent(inout) :: array
-    integer, intent(in) :: numRemove                           ! Number of elements to remove from 'array'
-    integer, intent(in) :: Start                               ! The element in which to start removing the array
-    integer i, j                                               ! Looping integer
-    
-    allocate(tmp_arr(size(array) - numRemove))
-
-    tmp_arr(:) = 0
-
-    j=1
-
-    if ( (Start + numRemove) .le. size(array) ) then
-
-
-       do i = 1, Start - 1
-
-          tmp_arr(i) = array(i)
-          j = j + 1
-
-       end do
-
-
-       do i = (Start + numRemove), Size(array)
-
-          tmp_arr(j) = array(i)
-          j = j + 1
-
-       end do
-
-
-
-    else if ( (Start + numRemove) .gt. size(array) ) then
-
-       do i = (Start + numRemove - size(array)) , Start-1
-
-          tmp_arr(j) = array(i)
-          j = j + 1
-
-       end do
-
-
-    end if
-
-    deallocate(array)
-    allocate(array(size(tmp_arr)))
-    
-    array = tmp_arr
-    
-   
-  end subroutine resize_array
   
-  subroutine DefineCluster( SitePotential, Sites, weakL, weakR, ClusterSize, sitesremoved )
+  subroutine DefineCluster( SitePotential, Sites, weakL, weakR, ClusterSize )
     implicit none
 
     ! Inputs
-    integer, intent(in) :: sitesremoved
-    real, dimension(dim-sitesremoved), intent(in) :: SitePotential
+    real(dp), dimension(dim), intent(in) :: SitePotential
     integer, intent(in) :: weakL, weakR
     integer, intent(in) :: ClusterSize
 
     ! Outputs
-    real, dimension(ClusterSize), intent(out) :: Sites
+    real(dp), dimension(ClusterSize), intent(out) :: Sites
 
     ! Other
-    integer :: EndSite
+    integer :: EndSite, FirstSite
+
+    Sites = 0.0_dp
+    !print*, "Cluster Size: ", ClusterSize-2
     
-    if ( (weakL .gt. weakR) .and. ( ClusterSize .gt. 1 ) ) then
-       EndSite = (dim - sitesremoved) - weakL
-       Sites(1:EndSite) = SitePotential((weakL+1):(dim - sitesremoved))
-       Sites((EndSite+1):ClusterSize) = SitePotential(1:weakR)
-    else if ( (weakL .gt. weakR) .and. ( ClusterSize .eq. 1 ) ) then
-       Sites = SitePotential(weakR:weakR)
-    else if ( size(SitePotential) .eq. ClusterSize ) then
-       Sites = SitePotential
+    if ( weakL .gt. weakR ) then
+       EndSite = dim - (weakL - 1)
+       Sites(1:EndSite) = SitePotential(weakL:dim)
+       Sites((EndSite+1):ClusterSize-1) = SitePotential(1:weakR)
     else
-       Sites = SitePotential((weakL+1):weakR)
+       Sites(1:ClusterSize-1) = SitePotential(weakL:weakR)
     end if
+    !print*, "Cluster Sites", Sites(2:ClusterSize-1)
+    if ( weakR .eq. dim ) then
+       Sites(ClusterSize) = SitePotential(1)
+    else
+       Sites(ClusterSize) = SitePotential(weakR+1)
+    end if
+    !print*, "SubSystem sites", Sites
+    
 
   end subroutine DefineCluster
   
